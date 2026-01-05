@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
+  <defs>
+    <!-- Red to Orange Gradient -->
+    <linearGradient id="grad" x1="0%" y1="100%" x2="100%" y2="0%">
+      <stop offset="0%" style="stop-color:#DC2626;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#EA580C;stop-opacity:1" />
+    </linearGradient>
+  </defs>
+  
+  <!-- Rounded Background with slight rotation -->
+  <rect width="100" height="100" rx="24" fill="url(#grad)" transform="rotate(-3 50 50)" />
+  
+  <!-- Flame Icon (White Fill) -->
+  <svg x="18" y="18" width="64" height="64" viewBox="0 0 24 24" fill="white" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.38-.5-2-1-3-1.072-2.148-.224-4.078.397-5.401A1 1 0 0 1 11.45 2.8A11 11 0 0 1 21 15.396 9.5 9.5 0 0 1 11.5 22c-3.866 0-7-3.134-7-7 0-3.3 2.1-6 5.1-7 .5.9.9 2.1.9 3.5 0 1.66 1.34 3 3 3" />
+  </svg>
+</svg>
