@@ -16,7 +16,9 @@ import {
 } from 'firebase/firestore';
 
 // --- CONFIG ---
-const API_BASE_URL = 'http://127.0.0.1:5001'; 
+const API_BASE_URL = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
+  ? 'http://127.0.0.1:5001' 
+  : 'https://cineblaze-backend.onrender.com'; 
 const TMDB_IMAGE_BASE_URL = 'https://image.tmdb.org/t/p/w500';
 const TMDB_LOGO_BASE_URL = 'https://image.tmdb.org/t/p/original';
 const PLACEHOLDER_IMAGE = 'https://placehold.co/500x750/171717/7f1d1d?text=No+Poster';
