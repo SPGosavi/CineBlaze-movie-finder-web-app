@@ -123,7 +123,7 @@ Client (React + Vite)
 
 ### Backend
 - Node.js + Express  
-- Google Gemini 1.5 Flash  
+- Google Gemini 2.5 Flash  
 - TMDB API & OMDb API  
 - node-fetch & node-cache  
 
