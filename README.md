@@ -20,6 +20,25 @@
     The platform follows a decoupled client-server architecture, where a React-based frontend communicates with a Node.js backend that processes semantic queries using Google Gemini AI. Additional metadata, including cast details, ratings, and streaming availability, is enriched through third-party APIs, while user watchlists are synchronized in real time using Firebase Cloud Firestore.
 </p>
 
+<h2>🚀 Live Deployment</h2>
+
+<p>
+    The application is deployed using modern cloud platforms to ensure scalability and performance.
+</p>
+
+<ul>
+    <li><strong>Vercel Link:</strong> 
+        <a href="https://cine-blaze-movie-finder-web-app.vercel.app/" target="_blank">
+            https://cineblaze.vercel.app
+        </a>
+    </li>
+</ul>
+
+<p>
+    <em>Note: Guest login is enabled for quick access. AI-based search responses may take a few seconds depending on API latency.</em>
+</p>
+
+
 ## 🧠Skills & Concepts Demonstrated
 
 - GenAI Integration
@@ -127,6 +146,12 @@ cd cineblaze
 - Push to GitHub
 - Open a Pull Request
 
+<h2>📄 License</h2>
+
+<p>
+    This project is licensed under the <strong>MIT License</strong>.  
+    You are free to use, modify, and distribute this software with proper attribution.
+</p>
 
 
 
