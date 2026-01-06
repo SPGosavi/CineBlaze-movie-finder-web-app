@@ -68,7 +68,17 @@
 
 ## 📸 Screenshots
 
-> Add screenshots after uploading them to GitHub or an image host.
+<h3>Home / Discover</h3>
+<img src="images/Screenshot%201.png" alt="CineBlaze Home Page" width="800"/>
+
+<h3>AI Search Result</h3>
+<img src="images/Screenshot%202.png" alt="AI Search Result" width="800"/>
+
+<h3>Movie / Series Details</h3>
+<img src="images/Screenshot%203.png" alt="Movie / Series Details" width="800"/>
+
+<h3>My Watchlist</h3>
+<img src="images/Screenshot%204.png" alt="My Watchlist" width="800"/>
 
 ### Home / Discover
 - AI-powered search  
@@ -91,6 +101,8 @@
 ## 🏗️ Architecture & Workflow
 
 CineBlaze follows a **decoupled Client–Server architecture** for scalability and performance.
+
+<img src="images/CineBlaze_Workflow.png" alt="CineBlaze Home Page" width="600"/>
 
 Client (React + Vite)  
 → Backend (Node.js + Express)  
