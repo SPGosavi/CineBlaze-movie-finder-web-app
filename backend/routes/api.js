@@ -1,6 +1,6 @@
 import express from 'express';
 import { getTrendingAll, getTrendingIndian, getTrendingPlatform } from '../controllers/trendingController.js';
-import { findMovies, getSimilar } from '../controllers/searchController.js';
+import { findMovies, getSimilar, getMediaDetails} from '../controllers/searchController.js';
 
 const router = express.Router();
 
