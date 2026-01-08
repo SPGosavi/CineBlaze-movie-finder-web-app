@@ -2,6 +2,18 @@ import cache from '../utils/cache.js';
 import { callGeminiWithFallback, callGeminiSimilar } from '../services/aiService.js';
 import { fetchEnrichedData, getNativeTmdbRecommendations, enrichWithDeepData, searchTmdbDirect } from '../services/tmdbService.js';
 
+export const getMediaDetails = async (req, res) => {
+    const { title, year, media_type } = req.body;
+    try {
+        // Reuse existing logic to fetch full details for one item
+        const data = await fetchEnrichedData(title, year, media_type);
+        res.json(data || {});
+    } catch (e) {
+        console.error(e);
+        res.status(500).json({ error: 'Failed to fetch details' });
+    }
+};
+
 export const findMovies = async (req, res) => {
     const { description } = req.body;
     if (!description) return res.status(400).json({ error: 'Description required' });

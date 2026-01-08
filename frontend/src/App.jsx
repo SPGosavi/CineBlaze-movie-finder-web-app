@@ -393,22 +393,50 @@ const TrendingRow = ({ title, items, onAdd, onExpand }) => (
 );
 
 const MovieDetailsModal = ({ item, onClose, onAddToWatchlist, onRemoveFromWatchlist, isInWatchlist, onExpand }) => {
+  const [detailedItem, setDetailedItem] = useState(item);
   const [similarMovies, setSimilarMovies] = useState([]);
   const [loadingSimilar, setLoadingSimilar] = useState(false);
   const [showSimilar, setShowSimilar] = useState(false);
+  const [loadingDetails, setLoadingDetails] = useState(false);
 
+  // Initialize
   useEffect(() => {
     setSimilarMovies([]);
     setShowSimilar(false);
-  }, [item?.id]);
+    
+    // Check if we have deep data (cast/director). If not, fetch it.
+    if (!item.director && !item.cast) {
+        setLoadingDetails(true);
+        fetch(`${API_BASE_URL}/api/media-details`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ 
+                title: item.title || item.name, 
+                year: (item.release_date || item.first_air_date)?.split('-')[0], 
+                media_type: item.media_type || 'movie' 
+            })
+        })
+        .then(res => res.json())
+        .then(data => {
+            if (data && data.id) setDetailedItem({ ...item, ...data });
+            setLoadingDetails(false);
+        })
+        .catch(() => setLoadingDetails(false));
+    } else {
+        setDetailedItem(item);
+    }
+  }, [item.id]);
 
-  if (!item) return null;
-  const safeItem = sanitizeItem(item); // Ensure data is safe
+  if (!detailedItem) return null;
+  
+  // Use detailedItem for rendering
+  const safeItem = sanitizeItem(detailedItem);
   const isTv = safeItem.media_type === 'tv';
   const year = safeItem.release_date.split('-')[0] || 'N/A';
   const imdbRating = safeItem.imdb_rating && safeItem.imdb_rating !== 'N/A' ? safeItem.imdb_rating : null;
   const rtRating = safeItem.rotten_tomatoes && safeItem.rotten_tomatoes !== 'N/A' ? safeItem.rotten_tomatoes : null;
 
+  // ... (Keep handleFetchSimilar logic same, but use safeItem) ...
   const handleFetchSimilar = async () => {
     if (showSimilar) { setShowSimilar(false); return; }
     setShowSimilar(true);
@@ -435,109 +463,59 @@ const MovieDetailsModal = ({ item, onClose, onAddToWatchlist, onRemoveFromWatchl
         <div className="md:w-1/3 h-48 md:h-auto relative flex-shrink-0">
            <Poster path={safeItem.poster_path} alt={safeItem.title} className="w-full h-full object-cover" />
            <div className="absolute inset-0 bg-gradient-to-t from-neutral-900 via-transparent to-transparent md:bg-gradient-to-r md:from-transparent md:to-neutral-900"></div>
+           {loadingDetails && (
+               <div className="absolute inset-0 flex items-center justify-center bg-black/50">
+                   <div className="animate-spin rounded-full h-10 w-10 border-t-2 border-b-2 border-white"></div>
+               </div>
+           )}
         </div>
 
         <div className="flex-1 flex flex-col overflow-y-auto p-6 md:p-8 custom-scrollbar">
+           {/* ... (Render the rest of the modal using `safeItem` and `year` etc.) ... */}
+           {/* Just copy the JSX from previous version, but ensure it uses safeItem */}
+           
            <div className="mb-4">
-              {/* Badges Row */}
               <div className="flex items-center gap-3 mb-2">
-                 <span className={`text-xs font-black px-2 py-0.5 rounded text-white uppercase tracking-wider ${isTv ? 'bg-orange-600' : 'bg-red-600'}`}>
-                    {isTv ? 'Series' : 'Movie'}
-                 </span>
+                 <span className={`text-xs font-black px-2 py-0.5 rounded text-white uppercase tracking-wider ${isTv ? 'bg-orange-600' : 'bg-red-600'}`}>{isTv ? 'Series' : 'Movie'}</span>
                  <span className="text-gray-400 font-medium font-mono">{year}</span>
                  {imdbRating && <span className="text-yellow-400 font-bold bg-yellow-400/10 px-2 py-0.5 rounded border border-yellow-400/20">IMDb {imdbRating}</span>}
                  {rtRating && <span className="text-red-400 font-bold bg-red-400/10 px-2 py-0.5 rounded border border-red-400/20">RT {rtRating}</span>}
               </div>
-
-              {/* Title & Genre Row */}
-              <div className="flex flex-col md:flex-row md:items-start justify-between gap-4 mb-2">
-                  <h2 className="text-2xl md:text-4xl font-black text-white leading-tight tracking-tight flex-1">
-                      {safeItem.title}
-                  </h2>
-                  
-                  {/* Genres Display */}
-                  {safeItem.genres.length > 0 && (
-                      <div className="flex flex-wrap gap-2 md:justify-end mt-1">
-                          {safeItem.genres.slice(0, 3).map((g, i) => (
-                              <span key={i} className="text-[10px] font-bold text-gray-300 bg-neutral-800 border border-neutral-600 px-2 py-1 rounded uppercase tracking-wider whitespace-nowrap">
-                                  {g}
-                              </span>
-                          ))}
-                      </div>
-                  )}
-              </div>
-
-              {safeItem.director && safeItem.director !== "Unknown" && (
-                  <p className="text-gray-400 text-sm">Directed by <span className="text-white font-semibold">{safeItem.director}</span></p>
-              )}
+              <h2 className="text-2xl md:text-4xl font-black text-white leading-tight mb-2 tracking-tight">{safeItem.title}</h2>
+              {safeItem.director && safeItem.director !== "Unknown" && <p className="text-gray-400 text-sm">Directed by <span className="text-white font-semibold">{safeItem.director}</span></p>}
            </div>
 
            {safeItem.cast.length > 0 && (
                <div className="mb-6">
                    <h3 className="text-[10px] font-bold text-gray-500 uppercase mb-2 tracking-widest">Starring</h3>
-                   <div className="flex flex-wrap gap-2">
-                       {safeItem.cast.map((actor, idx) => (
-                           <span key={idx} className="bg-neutral-800 text-gray-300 px-3 py-1 rounded-full text-sm border border-neutral-700 hover:border-gray-500 transition-colors cursor-default">
-                               {actor}
-                           </span>
-                       ))}
-                   </div>
+                   <div className="flex flex-wrap gap-2">{safeItem.cast.map((actor, idx) => <span key={idx} className="bg-neutral-800 text-gray-300 px-3 py-1 rounded-full text-sm border border-neutral-700 hover:border-gray-500 transition-colors cursor-default">{actor}</span>)}</div>
                </div>
            )}
-
+           
+           {/* ... keep remaining Streaming, Synopsis, Buttons sections same as before ... */}
            <div className="mb-6">
               <h3 className="text-[10px] font-bold text-gray-500 uppercase mb-2 tracking-widest">Synopsis</h3>
-              <p className="text-gray-300 leading-relaxed text-sm md:text-base border-l-2 border-red-600 pl-4">
-                  {safeItem.overview || "No plot description available."}
-              </p>
+              <p className="text-gray-300 leading-relaxed text-sm md:text-base border-l-2 border-red-600 pl-4">{safeItem.overview || "No plot description available."}</p>
            </div>
-
+           
            {safeItem.providers.length > 0 && (
-               <div className="mb-6 border-t border-neutral-800 pt-4">
-                   <h3 className="text-[10px] font-bold text-gray-500 uppercase mb-3 tracking-widest flex items-center gap-2"><MonitorPlay size={14}/> Streaming On</h3>
-                   <div className="flex flex-wrap gap-3">
-                       {safeItem.providers.map((provider, idx) => (
-                           <div key={idx} className="flex items-center gap-2 bg-neutral-800 p-2 rounded-lg border border-neutral-700 hover:border-neutral-500 transition-colors" title={provider.name}>
-                               <img src={`${TMDB_LOGO_BASE_URL}${provider.logo}`} alt={provider.name} className="w-6 h-6 rounded-md" />
-                               <span className="text-xs text-gray-300 font-medium">{provider.name}</span>
-                           </div>
-                       ))}
-                   </div>
-               </div>
+               <div className="mb-6 border-t border-neutral-800 pt-4"><h3 className="text-[10px] font-bold text-gray-500 uppercase mb-3 tracking-widest flex items-center gap-2"><MonitorPlay size={14}/> Streaming On</h3><div className="flex flex-wrap gap-3">{safeItem.providers.map((provider, idx) => <div key={idx} className="flex items-center gap-2 bg-neutral-800 p-2 rounded-lg border border-neutral-700 hover:border-neutral-500 transition-colors" title={provider.name}><img src={`${TMDB_LOGO_BASE_URL}${provider.logo}`} alt={provider.name} className="w-6 h-6 rounded-md" /><span className="text-xs text-gray-300 font-medium">{provider.name}</span></div>)}</div></div>
            )}
-
+           
            <div className="flex flex-col sm:flex-row gap-3 mt-auto pt-6 border-t border-neutral-800">
                {isInWatchlist ? (
-                   <button 
-                      onClick={() => { onRemoveFromWatchlist(safeItem.id); onClose(); }}
-                      className="flex-1 bg-red-900/20 border border-red-500/50 text-red-500 font-bold py-3 rounded-xl hover:bg-red-600 hover:text-white transition-all flex items-center justify-center gap-2 group"
-                   >
-                       <Trash2 size={20} className="group-hover:scale-110 transition-transform" /> Remove from List
-                   </button>
+                   <button onClick={() => { onRemoveFromWatchlist(safeItem.id); onClose(); }} className="flex-1 bg-red-900/20 border border-red-500/50 text-red-500 font-bold py-3 rounded-xl hover:bg-red-600 hover:text-white transition-all flex items-center justify-center gap-2 group"><Trash2 size={20} className="group-hover:scale-110 transition-transform" /> Remove from List</button>
                ) : (
-                   <button 
-                      onClick={() => { onAddToWatchlist(safeItem); onClose(); }}
-                      className="flex-1 bg-white text-black font-bold py-3 rounded-xl hover:bg-gray-200 transition-all flex items-center justify-center gap-2 shadow-lg shadow-white/10 active:scale-95"
-                   >
-                       <Plus size={20} /> Add to Watchlist
-                   </button>
+                   <button onClick={() => { onAddToWatchlist(safeItem); onClose(); }} className="flex-1 bg-white text-black font-bold py-3 rounded-xl hover:bg-gray-200 transition-all flex items-center justify-center gap-2 shadow-lg shadow-white/10 active:scale-95"><Plus size={20} /> Add to Watchlist</button>
                )}
-               
-               <button 
-                  onClick={handleFetchSimilar}
-                  className={`flex-1 font-bold py-3 rounded-xl border flex items-center justify-center gap-2 transition-all ${showSimilar ? 'bg-orange-600 border-orange-600 text-white shadow-lg shadow-orange-900/20' : 'border-neutral-600 text-gray-300 hover:bg-neutral-800 hover:border-gray-400'}`}
-               >
-                   <Zap size={18} className={showSimilar ? 'animate-pulse' : ''} /> {showSimilar ? 'Hide Similar' : 'Find Similar'}
-               </button>
+               <button onClick={handleFetchSimilar} className={`flex-1 font-bold py-3 rounded-xl border flex items-center justify-center gap-2 transition-all ${showSimilar ? 'bg-orange-600 border-orange-600 text-white shadow-lg shadow-orange-900/20' : 'border-neutral-600 text-gray-300 hover:bg-neutral-800 hover:border-gray-400'}`}><Zap size={18} className={showSimilar ? 'animate-pulse' : ''} /> {showSimilar ? 'Hide Similar' : 'Find Similar'}</button>
            </div>
-
+           
            {showSimilar && (
                <div className="mt-6 animate-fade-in pb-10 md:pb-0 border-t border-neutral-800 pt-4">
                    <h3 className="text-sm font-bold text-orange-500 mb-3 uppercase tracking-wider flex items-center gap-2"><Film size={14}/> You might also like</h3>
                    {loadingSimilar ? <div className="flex justify-center py-8"><div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-orange-500"></div></div> : similarMovies.length > 0 ? (
-                       <HorizontalScrollContainer>
-                           {similarMovies.map(sim => <SimilarCard key={sim.id} item={sim} onClick={onExpand} />)}
-                       </HorizontalScrollContainer>
+                       <HorizontalScrollContainer>{similarMovies.map(sim => <SimilarCard key={sim.id} item={sim} onClick={onExpand} />)}</HorizontalScrollContainer>
                    ) : <p className="text-gray-500 text-sm">No similar titles found.</p>}
                </div>
            )}

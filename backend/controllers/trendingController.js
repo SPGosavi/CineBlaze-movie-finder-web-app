@@ -1,6 +1,6 @@
 import cache from '../utils/cache.js';
 import { TMDB_API_KEY, PROVIDERS } from '../config.js';
-import { fetchTmdb, enrichWithDeepData } from '../services/tmdbService.js';
+import { fetchTmdb } from '../services/tmdbService.js';
 
 export const getTrendingAll = async (req, res) => {
     const cached = cache.get('trending_all');
@@ -9,10 +9,7 @@ export const getTrendingAll = async (req, res) => {
     try {
         const url = `https://api.themoviedb.org/3/trending/all/week?api_key=${TMDB_API_KEY}&language=en-US`;
         const data = await fetchTmdb(url);
-        
-        // Use DEEP enrich to get Cast/Director/Ratings
-        data.results = await enrichWithDeepData(data.results);
-        
+        // REMOVED: await enrichWithDeepData(data.results);
         cache.set('trending_all', data);
         res.json(data);
     } catch (e) { res.status(500).json({ error: e.message }); }
@@ -28,12 +25,10 @@ export const getTrendingIndian = async (req, res) => {
         
         const [movies, tv] = await Promise.all([fetchTmdb(movieUrl), fetchTmdb(tvUrl)]);
         
-        let combined = [
+        const combined = [
             ...movies.results.slice(0, 10).map(m => ({ ...m, media_type: 'movie' })),
             ...tv.results.slice(0, 10).map(m => ({ ...m, media_type: 'tv' }))
         ].sort(() => Math.random() - 0.5);
-
-        combined = await enrichWithDeepData(combined, 15);
 
         const response = { results: combined };
         cache.set('trending_indian', response);
@@ -53,10 +48,7 @@ export const getTrendingPlatform = async (req, res) => {
     try {
         const url = `https://api.themoviedb.org/3/discover/tv?api_key=${TMDB_API_KEY}&watch_region=IN&with_watch_providers=${providerId}&sort_by=popularity.desc`;
         const data = await fetchTmdb(url);
-        
         data.results = data.results.map(m => ({...m, media_type: 'tv'})); 
-        data.results = await enrichWithDeepData(data.results);
-
         cache.set(cacheKey, data);
         res.json(data);
     } catch (e) { res.status(500).json({ error: e.message }); }

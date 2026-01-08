@@ -12,5 +12,6 @@ router.get('/trending/platform/:platform', getTrendingPlatform);
 // Search Routes
 router.post('/find-movies', findMovies);
 router.post('/get-similar', getSimilar);
+router.post('/media-details', getMediaDetails);
 
 export default router;
