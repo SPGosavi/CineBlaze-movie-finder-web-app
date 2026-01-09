@@ -13,7 +13,7 @@ export const getTrendingAll = async (req, res) => {
         // Convert raw TMDB items to our app format (ids -> strings)
         data.results = data.results.map(item => formatBasicTmdbResult(item));
         
-        cache.set('trending_all', data);
+        cache.set('trending_all', data, 21600);
         res.json(data);
     } catch (e) { res.status(500).json({ error: e.message }); }
 };
@@ -31,7 +31,7 @@ export const getTrendingIndian = async (req, res) => {
             ...tv.results.slice(0, 10).map(m => formatBasicTmdbResult(m, 'tv'))
         ].sort(() => Math.random() - 0.5);
 
-        cache.set('trending_indian', { results: combined });
+        cache.set('trending_indian', { results: combined }, 21600);
         res.json({ results: combined });
     } catch (e) { res.status(500).json({ error: e.message }); }
 };
@@ -49,7 +49,7 @@ export const getTrendingPlatform = async (req, res) => {
         
         data.results = data.results.map(m => formatBasicTmdbResult(m, 'tv'));
         
-        cache.set(cacheKey, data);
+        cache.set(cacheKey, data, 21600);
         res.json(data);
     } catch (e) { res.status(500).json({ error: e.message }); }
 };
