@@ -57,12 +57,12 @@ const GlobalStyles = () => (
   `}</style>
 );
 
-// --- HELPER: DATA SANITIZER ---
 const sanitizeItem = (item) => {
     if (!item) return null;
     return {
         ...item,
         id: item.id,
+        // Backend guarantees strings, but safe fallback to []
         genres: Array.isArray(item.genres) ? item.genres : [],
         cast: Array.isArray(item.cast) ? item.cast : [],
         providers: Array.isArray(item.providers) ? item.providers : [],
@@ -244,6 +244,7 @@ const MediaCard = ({ item, onAddToWatchlist, onExpand }) => {
         </div>
         
         <div className="flex flex-wrap gap-1 mb-2 min-h-[20px]">
+            {/* The genres array is now clean strings coming from server */}
             {safeItem.genres.slice(0,2).map((g, i) => (
                 <span key={i} className="text-[9px] uppercase tracking-wider font-semibold text-gray-400 border border-neutral-600 px-1.5 py-0.5 rounded-sm">
                     {g}
@@ -265,6 +266,7 @@ const MediaCard = ({ item, onAddToWatchlist, onExpand }) => {
   );
 };
 
+// --- UPDATED WatchlistCard ---
 const WatchlistCard = ({ item, onDragStart, onDropItem, onExpand }) => {
     const [isOver, setIsOver] = useState(false);
     const [isDragging, setIsDragging] = useState(false);
@@ -323,11 +325,15 @@ const WatchlistCard = ({ item, onDragStart, onDropItem, onExpand }) => {
             <h4 className="font-bold text-gray-200 text-sm truncate leading-snug group-hover:text-red-400 transition-colors">{safeItem.title || "Untitled"}</h4>
             <span className="text-xs text-orange-500 font-medium mb-1.5">{year}</span>
             <div className="flex flex-wrap gap-1">
-                {safeItem.genres.slice(0, 2).map((g, i) => (
-                    <span key={i} className="text-[8px] bg-neutral-900 text-gray-500 px-1.5 py-0.5 rounded border border-neutral-800 uppercase tracking-wide">
-                        {g}
-                    </span>
-                ))}
+                {Array.isArray(safeItem.genres) && safeItem.genres.length > 0 ? (
+                    safeItem.genres.slice(0, 2).map((g, i) => (
+                        <span key={i} className="text-[8px] bg-neutral-900 text-gray-500 px-1.5 py-0.5 rounded border border-neutral-800 uppercase tracking-wide">
+                            {typeof g === 'object' ? g.name : g}
+                        </span>
+                    ))
+                ) : (
+                    <span className="text-[8px] text-gray-600">No Genre</span>
+                )}
             </div>
           </div>
         </div>
@@ -404,8 +410,10 @@ const MovieDetailsModal = ({ item, onClose, onAddToWatchlist, onRemoveFromWatchl
     setSimilarMovies([]);
     setShowSimilar(false);
     
-    // Check if we have deep data (cast/director). If not, fetch it.
-    if (!item.director && !item.cast) {
+    // FIX: Check if director is "Unknown" OR cast is missing to trigger fetch
+    const needsFetch = !item.director || item.director === "Unknown" || !item.cast || item.cast.length === 0;
+
+    if (needsFetch) {
         setLoadingDetails(true);
         fetch(`${API_BASE_URL}/api/media-details`, {
             method: 'POST',
@@ -418,12 +426,16 @@ const MovieDetailsModal = ({ item, onClose, onAddToWatchlist, onRemoveFromWatchl
         })
         .then(res => res.json())
         .then(data => {
-            if (data && data.id) setDetailedItem({ ...item, ...data });
+            if (data && data.id) {
+                // Merge and sanitize
+                const newItem = { ...item, ...data };
+                setDetailedItem(sanitizeItem(newItem));
+            }
             setLoadingDetails(false);
         })
         .catch(() => setLoadingDetails(false));
     } else {
-        setDetailedItem(item);
+        setDetailedItem(sanitizeItem(item));
     }
   }, [item.id]);
 
@@ -481,7 +493,25 @@ const MovieDetailsModal = ({ item, onClose, onAddToWatchlist, onRemoveFromWatchl
                  {imdbRating && <span className="text-yellow-400 font-bold bg-yellow-400/10 px-2 py-0.5 rounded border border-yellow-400/20">IMDb {imdbRating}</span>}
                  {rtRating && <span className="text-red-400 font-bold bg-red-400/10 px-2 py-0.5 rounded border border-red-400/20">RT {rtRating}</span>}
               </div>
-              <h2 className="text-2xl md:text-4xl font-black text-white leading-tight mb-2 tracking-tight">{safeItem.title}</h2>
+              <div className="flex flex-wrap items-start justify-between gap-3 mb-2">
+  <h2 className="text-2xl md:text-4xl font-black text-white leading-tight tracking-tight">
+    {safeItem.title}
+  </h2>
+
+  {safeItem.genres.length > 0 && (
+    <div className="flex flex-wrap gap-2 justify-end">
+      {safeItem.genres.slice(0, 3).map((genre, index) => (
+        <span
+          key={index}
+          className="text-xs uppercase tracking-wider font-bold text-orange-400 border border-orange-500/30 px-2 py-1 rounded-md bg-orange-500/10"
+        >
+          {genre}
+        </span>
+      ))}
+    </div>
+  )}
+</div>
+
               {safeItem.director && safeItem.director !== "Unknown" && <p className="text-gray-400 text-sm">Directed by <span className="text-white font-semibold">{safeItem.director}</span></p>}
            </div>
 

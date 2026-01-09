@@ -4,15 +4,47 @@ import { fetchEnrichedData, getNativeTmdbRecommendations, enrichWithDeepData, se
 
 export const getMediaDetails = async (req, res) => {
     const { title, year, media_type } = req.body;
+    
+    // Check cache for details to save API calls
+    const cacheKey = `details_${title}_${year}_${media_type}`;
+    const cached = cache.get(cacheKey);
+    if (cached) return res.json(cached);
+
     try {
-        // Reuse existing logic to fetch full details for one item
+        // Fetch full details (Cast, Director, Streaming)
         const data = await fetchEnrichedData(title, year, media_type);
-        res.json(data || {});
+        
+        if (data) {
+            cache.set(cacheKey, data, 3600); // Cache details for 1 hour
+            res.json(data);
+        } else {
+            res.json({}); // Return empty if not found to stop spinner
+        }
     } catch (e) {
-        console.error(e);
+        console.error("Detail Fetch Error:", e);
         res.status(500).json({ error: 'Failed to fetch details' });
     }
 };
+
+function isLikelyTitleQuery(query) {
+    if (!query) return false;
+
+    const q = query.toLowerCase().trim();
+
+    // Plot-style indicators
+    const plotKeywords = [
+        'about', 'story', 'where', 'who', 'man', 'woman',
+        'boy', 'girl', 'based on', 'set in', 'finds', 'journey'
+    ];
+
+    if (plotKeywords.some(k => q.includes(k))) return false;
+
+    // Too long → probably a description
+    if (q.split(' ').length > 6) return false;
+
+    // Looks like a clean title
+    return true;
+}
 
 export const findMovies = async (req, res) => {
     const { description } = req.body;
@@ -29,7 +61,21 @@ export const findMovies = async (req, res) => {
         console.log(`[Search] Processing: "${description.substring(0, 50)}..."`);
         
         let aiResults = [];
-        
+        // 🔹 NEW: Skip Gemini if user already knows the title
+        if (isLikelyTitleQuery(description)) {
+            console.log("[Search] Detected title query. Skipping Gemini.");
+
+            const directResults = await searchTmdbDirect(description);
+
+            if (directResults.length > 0) {
+                const enriched = await enrichWithDeepData(directResults);
+                const response = { movies: enriched };
+
+                cache.set(cacheKey, response, 3600); // cache for 1 hour
+                return res.json(response);
+            }
+        }
+
         // 1. Try AI Search
         try {
             aiResults = await callGeminiWithFallback(description);
