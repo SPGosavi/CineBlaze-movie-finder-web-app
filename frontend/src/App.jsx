@@ -1,4 +1,6 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
+import api from './api';
+
 import { 
   Search, Film, Tv, List, Settings, User, 
   Plus, AlertTriangle, X, Zap, Trash2, Filter, 
@@ -80,6 +82,25 @@ const sanitizeItem = (item) => {
 };
 
 // --- COMPONENTS ---
+
+const TrendingSkeleton = () => (
+  <div className="space-y-3">
+    <div className="flex items-center gap-2 px-1">
+      <div className="w-1 h-5 bg-red-600 rounded-full"></div>
+      <div className="h-5 w-40 bg-white/10 rounded animate-pulse"></div>
+    </div>
+
+    <div className="flex gap-4 overflow-hidden px-1">
+      {Array.from({ length: 8 }).map((_, i) => (
+        <div
+          key={i}
+          className="min-w-[140px] md:min-w-[160px] h-[240px] bg-white/5 rounded-xl animate-pulse"
+        />
+      ))}
+    </div>
+  </div>
+);
+
 
 const Poster = ({ path, alt, className = "" }) => (
   <img 
@@ -411,7 +432,12 @@ const MovieDetailsModal = ({ item, onClose, onAddToWatchlist, onRemoveFromWatchl
     setShowSimilar(false);
     
     // FIX: Check if director is "Unknown" OR cast is missing to trigger fetch
-    const needsFetch = !item.director || item.director === "Unknown" || !item.cast || item.cast.length === 0;
+    const needsFetch =
+        !item.cast ||
+        item.cast.length === 0 ||
+        !item.providers ||
+        item.providers.length === 0;
+
 
     if (needsFetch) {
         setLoadingDetails(true);
@@ -419,6 +445,7 @@ const MovieDetailsModal = ({ item, onClose, onAddToWatchlist, onRemoveFromWatchl
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ 
+                id: item.id,
                 title: item.title || item.name, 
                 year: (item.release_date || item.first_air_date)?.split('-')[0], 
                 media_type: item.media_type || 'movie' 
@@ -438,6 +465,20 @@ const MovieDetailsModal = ({ item, onClose, onAddToWatchlist, onRemoveFromWatchl
         setDetailedItem(sanitizeItem(item));
     }
   }, [item.id]);
+
+  useEffect(() => {
+    if (item?.id && !item.providers) {
+      api.post('/media-extras', {
+        id: item.id,
+        media_type: item.media_type
+      }).then(res => {
+        setDetailedItem(prev => ({
+          ...prev,
+          providers: res.data.providers
+        }));
+      });
+    }
+  }, [item]);
 
   if (!detailedItem) return null;
   
@@ -475,11 +516,6 @@ const MovieDetailsModal = ({ item, onClose, onAddToWatchlist, onRemoveFromWatchl
         <div className="md:w-1/3 h-48 md:h-auto relative flex-shrink-0">
            <Poster path={safeItem.poster_path} alt={safeItem.title} className="w-full h-full object-cover" />
            <div className="absolute inset-0 bg-gradient-to-t from-neutral-900 via-transparent to-transparent md:bg-gradient-to-r md:from-transparent md:to-neutral-900"></div>
-           {loadingDetails && (
-               <div className="absolute inset-0 flex items-center justify-center bg-black/50">
-                   <div className="animate-spin rounded-full h-10 w-10 border-t-2 border-b-2 border-white"></div>
-               </div>
-           )}
         </div>
 
         <div className="flex-1 flex flex-col overflow-y-auto p-6 md:p-8 custom-scrollbar">
@@ -625,7 +661,7 @@ const NavButton = ({ icon: Icon, label, active, onClick }) => (
   </button>
 );
 
-const DiscoverView = ({ searchQuery, setSearchQuery, handleSearch, isSearching, searchResults, trendingAll, trendingNetflix, trendingPrime, onAddToWatchlist, clearResults, onExpand, searchError }) => (
+const DiscoverView = ({ searchQuery, setSearchQuery, handleSearch, isSearching, searchResults, trendingAll, trendingNetflix, trendingPrime, loadingTrending, loadingNetflix, loadingPrime, onAddToWatchlist, clearResults, onExpand, searchError }) => (
     <div className="space-y-10 animate-fade-in pb-24 md:pb-10">
       <div className="relative overflow-hidden rounded-3xl p-8 md:p-12 border border-white/5 shadow-2xl">
         <div className="absolute inset-0 bg-gradient-to-br from-red-900/80 via-orange-900/60 to-black z-0"></div>
@@ -682,11 +718,23 @@ const DiscoverView = ({ searchQuery, setSearchQuery, handleSearch, isSearching, 
 
       {searchResults.length === 0 && !isSearching && (
         <div className="space-y-10">
-          <TrendingRow title="Trending Now" items={trendingAll} onAdd={onAddToWatchlist} onExpand={onExpand} />
-          <TrendingRow title="Popular on Netflix" items={trendingNetflix} onAdd={onAddToWatchlist} onExpand={onExpand} />
-          <TrendingRow title="Popular on Prime Video" items={trendingPrime} onAdd={onAddToWatchlist} onExpand={onExpand} />
+            {loadingTrending
+            ? <TrendingSkeleton />
+            : <TrendingRow title="Trending Now" items={trendingAll} onAdd={onAddToWatchlist} onExpand={onExpand} />
+            }
+
+            {loadingNetflix
+            ? <TrendingSkeleton />
+            : <TrendingRow title="Popular on Netflix" items={trendingNetflix} onAdd={onAddToWatchlist} onExpand={onExpand} />
+            }
+
+            {loadingPrime
+            ? <TrendingSkeleton />
+            : <TrendingRow title="Popular on Prime Video" items={trendingPrime} onAdd={onAddToWatchlist} onExpand={onExpand} />
+            }
         </div>
-      )}
+)}
+
     </div>
 );
 
@@ -779,6 +827,11 @@ const MainLayout = ({ user, onLogout }) => {
   const [trendingAll, setTrendingAll] = useState([]);
   const [trendingNetflix, setTrendingNetflix] = useState([]);
   const [trendingPrime, setTrendingPrime] = useState([]);
+
+  const [loadingTrending, setLoadingTrendingAll] = useState(true);
+  const [loadingNetflix, setLoadingNetflix] = useState(true);
+  const [loadingPrime, setLoadingPrime] = useState(true);
+
   const [watchlist, setWatchlist] = useState([]);
   const [watchlistType, setWatchlistType] = useState('movie');
   const [selectedMovie, setSelectedMovie] = useState(null);
@@ -786,27 +839,43 @@ const MainLayout = ({ user, onLogout }) => {
   const dragItem = useRef(null);
 
   useEffect(() => {
-    const fetchTrending = async () => {
-        try {
-            fetch(`${API_BASE_URL}/api/trending/all`).then(r=>r.json()).then(d=>setTrendingAll(d.results || []));
-            fetch(`${API_BASE_URL}/api/trending/platform/netflix`).then(r=>r.json()).then(d=>setTrendingNetflix(d.results || []));
-            fetch(`${API_BASE_URL}/api/trending/platform/prime`).then(r=>r.json()).then(d=>setTrendingPrime(d.results || []));
-        } catch (e) {}
-    };
-    fetchTrending();
-    if (user && firebaseInitialized) {
-        const userRef = doc(db, 'artifacts', 'default-app-id', 'users', user.uid, 'data', 'watchlist');
-        const unsub = onSnapshot(userRef, (s) => { 
-            if (s.exists()) {
-                const data = s.data();
-                setWatchlist(Array.isArray(data.items) ? data.items : []);
-            } else {
-                setWatchlist([]);
-            }
-        });
-        return () => unsub();
-    }
-  }, [user]);
+    api.get('/trending/all')
+        .then(res => {
+        setTrendingAll(
+            res.data.results.map(item => ({
+            ...item,
+            __source: 'trending'
+            }))
+        );
+        })
+        .catch(() => setTrendingAll([]))
+        .finally(() => setLoadingTrendingAll(false));
+
+    api.get('/trending/platform/netflix')
+        .then(res => {
+        setTrendingNetflix(
+            res.data.results.map(item => ({
+            ...item,
+            __source: 'trending'
+            }))
+        );
+        })
+        .catch(() => setTrendingNetflix([]))
+        .finally(() => setLoadingNetflix(false));
+
+    api.get('/trending/platform/prime')
+        .then(res => {
+        setTrendingPrime(
+            res.data.results.map(item => ({
+            ...item,
+            __source: 'trending'
+            }))
+        );
+        })
+        .catch(() => setTrendingPrime([]))
+        .finally(() => setLoadingPrime(false));
+}, []);
+
 
   const handleSearch = async (e) => {
     e.preventDefault();
@@ -903,7 +972,25 @@ const MainLayout = ({ user, onLogout }) => {
       </aside>
       <main className="flex-1 overflow-y-auto relative scrollbar-thin bg-neutral-950">
         <div className="p-4 md:p-10 max-w-7xl mx-auto min-h-full">
-          {activeTab === 'discover' && <DiscoverView searchQuery={searchQuery} setSearchQuery={setSearchQuery} handleSearch={handleSearch} isSearching={isSearching} searchResults={searchResults} trendingAll={trendingAll} trendingNetflix={trendingNetflix} trendingPrime={trendingPrime} onAddToWatchlist={(i) => addToWatchlist(i, 'want')} clearResults={() => setSearchResults([])} onExpand={setSelectedMovie} searchError={searchError} />}
+          {activeTab === 'discover' && 
+            <DiscoverView 
+            searchQuery={searchQuery}
+            setSearchQuery={setSearchQuery}
+            handleSearch={handleSearch}
+            isSearching={isSearching}
+            searchResults={searchResults}
+            trendingAll={trendingAll}
+            trendingNetflix={trendingNetflix}
+            trendingPrime={trendingPrime}
+            loadingTrending={loadingTrending}
+            loadingNetflix={loadingNetflix}
+            loadingPrime={loadingPrime}
+            onAddToWatchlist={(i) => addToWatchlist(i, 'want')}
+            clearResults={() => setSearchResults([])}
+            onExpand={setSelectedMovie}
+            searchError={searchError}/>
+            }
+
           {activeTab === 'watchlist' && <WatchlistView watchlist={watchlist} watchlistType={watchlistType} setWatchlistType={setWatchlistType} onDrop={onDrop} onDragOver={onDragOver} onDragStart={onDragStart} firebaseInitialized={firebaseInitialized} onExpand={setSelectedMovie} onReorder={handleReorder} />}
           {activeTab === 'settings' && <div className="text-center py-20 text-gray-500"><Settings size={48} className="mx-auto mb-4 opacity-50" /><h2 className="text-xl font-bold text-gray-300">Settings</h2><p>Preferences coming soon...</p><button onClick={onLogout} className="mt-4 text-red-400 text-sm md:hidden">Logout</button></div>}
         </div>

@@ -1,18 +1,25 @@
 import cache from '../utils/cache.js';
 import { callGeminiWithFallback, callGeminiSimilar } from '../services/aiService.js';
-import { fetchEnrichedData, getNativeTmdbRecommendations, enrichWithDeepData, searchTmdbDirect } from '../services/tmdbService.js';
+import { fetchEnrichedData, fetchEnrichedDataById, getNativeTmdbRecommendations, enrichWithDeepData, searchTmdbDirect } from '../services/tmdbService.js';
 
 export const getMediaDetails = async (req, res) => {
-    const { title, year, media_type } = req.body;
+    const { id, title, year, media_type } = req.body;;
     
     // Check cache for details to save API calls
-    const cacheKey = `details_${title}_${year}_${media_type}`;
+    const cacheKey = id
+        ? `details_${media_type}_${id}`
+        : `details_${title}_${year}_${media_type}`;
     const cached = cache.get(cacheKey);
     if (cached) return res.json(cached);
 
     try {
-        // Fetch full details (Cast, Director, Streaming)
-        const data = await fetchEnrichedData(title, year, media_type);
+        let data;
+
+        if (id) {
+            data = await fetchEnrichedDataById(id, media_type);
+        } else {
+            data = await fetchEnrichedData(title, year, media_type);
+        }
         
         if (data) {
             cache.set(cacheKey, data, 3600); // Cache details for 1 hour
@@ -61,7 +68,6 @@ export const findMovies = async (req, res) => {
         console.log(`[Search] Processing: "${description.substring(0, 50)}..."`);
         
         let aiResults = [];
-        // 🔹 NEW: Skip Gemini if user already knows the title
         if (isLikelyTitleQuery(description)) {
             console.log("[Search] Detected title query. Skipping Gemini.");
 
@@ -163,5 +169,17 @@ export const getSimilar = async (req, res) => {
     } catch (e) { 
         console.error(e);
         res.status(500).json({ error: 'Error' }); 
+    }
+};
+
+export const getMediaExtras = async (req, res) => {
+    const { id, media_type } = req.body;
+    if (!id || !media_type) return res.json({});
+
+    try {
+        const providers = await fetchWatchProviders(id, media_type);
+        res.json({ providers });
+    } catch {
+        res.json({ providers: [] });
     }
 };

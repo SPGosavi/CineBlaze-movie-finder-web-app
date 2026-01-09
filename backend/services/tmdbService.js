@@ -9,6 +9,38 @@ const GENRE_MAP = {
   10764: "Reality", 10765: "Sci-Fi & Fantasy", 10766: "Soap", 10767: "Talk", 10768: "War & Politics"
 };
 
+export async function fetchEnrichedDataById(id, mediaType) {
+    if (!id || !mediaType) return null;
+
+    const [details, providers] = await Promise.all([
+        fetchTmdbDetails(id, mediaType),
+        fetchWatchProviders(id, mediaType)
+    ]);
+
+    return {
+        id,
+        media_type: mediaType,
+        genres: details.genres,
+        director: details.director,
+        cast: details.cast,
+        providers
+    };
+}
+
+export async function fetchFastDetailsById(id, mediaType) {
+    if (!id || !mediaType) return null;
+
+    const details = await fetchTmdbDetails(id, mediaType);
+
+    return {
+        id,
+        media_type: mediaType,
+        genres: details.genres,
+        director: details.director, // may exist
+        cast: details.cast           // may exist
+    };
+}
+
 
 export async function fetchTmdb(url) {
     const res = await fetch(url);
