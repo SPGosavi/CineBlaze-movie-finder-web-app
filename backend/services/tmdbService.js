@@ -68,7 +68,7 @@ export function formatBasicTmdbResult(item, mediaType) {
         poster_path: item.poster_path,
         vote_average: item.vote_average,
         media_type: mediaType || item.media_type || (item.title ? 'movie' : 'tv'),
-        genres: genres // Now sending ["Action", "Comedy"] to frontend
+        genres: genres 
     };
 }
 
@@ -140,7 +140,7 @@ export async function enrichWithDeepData(items, limit = 20) {
             rotten_tomatoes: ratings.rotten,
             director: details.director,
             cast: details.cast,
-            genres: details.genres, // Now contains string array ["Action", "Comedy"]
+            genres: details.genres, 
             providers: providers
         };
     }));

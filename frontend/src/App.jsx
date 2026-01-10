@@ -265,7 +265,6 @@ const MediaCard = ({ item, onAddToWatchlist, onExpand }) => {
         </div>
         
         <div className="flex flex-wrap gap-1 mb-2 min-h-[20px]">
-            {/* The genres array is now clean strings coming from server */}
             {safeItem.genres.slice(0,2).map((g, i) => (
                 <span key={i} className="text-[9px] uppercase tracking-wider font-semibold text-gray-400 border border-neutral-600 px-1.5 py-0.5 rounded-sm">
                     {g}
@@ -287,7 +286,6 @@ const MediaCard = ({ item, onAddToWatchlist, onExpand }) => {
   );
 };
 
-// --- UPDATED WatchlistCard ---
 const WatchlistCard = ({ item, onDragStart, onDropItem, onExpand }) => {
     const [isOver, setIsOver] = useState(false);
     const [isDragging, setIsDragging] = useState(false);
@@ -431,7 +429,6 @@ const MovieDetailsModal = ({ item, onClose, onAddToWatchlist, onRemoveFromWatchl
     setSimilarMovies([]);
     setShowSimilar(false);
     
-    // FIX: Check if director is "Unknown" OR cast is missing to trigger fetch
     const needsFetch =
         !item.cast ||
         item.cast.length === 0 ||
@@ -489,7 +486,6 @@ const MovieDetailsModal = ({ item, onClose, onAddToWatchlist, onRemoveFromWatchl
   const imdbRating = safeItem.imdb_rating && safeItem.imdb_rating !== 'N/A' ? safeItem.imdb_rating : null;
   const rtRating = safeItem.rotten_tomatoes && safeItem.rotten_tomatoes !== 'N/A' ? safeItem.rotten_tomatoes : null;
 
-  // ... (Keep handleFetchSimilar logic same, but use safeItem) ...
   const handleFetchSimilar = async () => {
     if (showSimilar) { setShowSimilar(false); return; }
     setShowSimilar(true);
@@ -519,8 +515,6 @@ const MovieDetailsModal = ({ item, onClose, onAddToWatchlist, onRemoveFromWatchl
         </div>
 
         <div className="flex-1 flex flex-col overflow-y-auto p-6 md:p-8 custom-scrollbar">
-           {/* ... (Render the rest of the modal using `safeItem` and `year` etc.) ... */}
-           {/* Just copy the JSX from previous version, but ensure it uses safeItem */}
            
            <div className="mb-4">
               <div className="flex items-center gap-3 mb-2">
@@ -558,7 +552,6 @@ const MovieDetailsModal = ({ item, onClose, onAddToWatchlist, onRemoveFromWatchl
                </div>
            )}
            
-           {/* ... keep remaining Streaming, Synopsis, Buttons sections same as before ... */}
            <div className="mb-6">
               <h3 className="text-[10px] font-bold text-gray-500 uppercase mb-2 tracking-widest">Synopsis</h3>
               <p className="text-gray-300 leading-relaxed text-sm md:text-base border-l-2 border-red-600 pl-4">{safeItem.overview || "No plot description available."}</p>
@@ -742,7 +735,6 @@ const WatchlistView = ({ watchlist, watchlistType, setWatchlistType, onDrop, onD
     const [filterGenre, setFilterGenre] = useState("All");
     if (!firebaseInitialized) return <div className="h-full flex flex-col items-center justify-center text-center p-8 text-gray-400"><AlertTriangle size={48} className="mb-4 text-orange-500" /><h2 className="text-xl font-bold text-white mb-2">Feature Unavailable</h2><p>Add Firebase config to use Watchlist.</p></div>;
     
-    // SAFE SORTING: Filter nulls FIRST to prevent crash
     const safeWatchlist = Array.isArray(watchlist) ? watchlist.filter(item => item && item.id).map(i => sanitizeItem(i)) : [];
     
     // Filter out duplicates (just in case DB has them)
@@ -944,6 +936,31 @@ const MainLayout = ({ user, onLogout }) => {
   const onDragStart = (e, id) => { dragItem.current = id; e.dataTransfer.effectAllowed = "move"; };
   const onDragOver = (e) => { e.preventDefault(); };
   const onDrop = (e, status) => { e.preventDefault(); const id = dragItem.current; if (id) { updateWatchlistStatus(id, status); dragItem.current = null; }};
+
+  useEffect(() => {
+    if (!firebaseInitialized || !user) return;
+
+    const userRef = doc(
+      db,
+      'artifacts',
+      'default-app-id',
+      'users',
+      user.uid,
+      'data',
+      'watchlist'
+    );
+
+    const unsubscribe = onSnapshot(userRef, (docSnap) => {
+      if (docSnap.exists()) {
+        const data = docSnap.data();
+        setWatchlist(Array.isArray(data.items) ? data.items : []);
+      } else {
+        setWatchlist([]);
+      }
+    });
+
+    return () => unsubscribe();
+  }, [user]);
 
   return (
     <div className="flex flex-col md:flex-row h-screen bg-black text-gray-100 font-sans overflow-hidden">

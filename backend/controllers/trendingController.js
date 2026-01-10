@@ -57,8 +57,8 @@ export const getTrendingIndian = async (req, res) => {
         if (!extra) return item;
 
         return {
-          ...item,   // ✅ title, poster, overview, year
-          ...extra   // ✅ cast, genres, providers, director
+          ...item,   
+          ...extra   
         };
       })
     );
@@ -87,15 +87,14 @@ export const getTrendingPlatform = async (req, res) => {
       formatBasicTmdbResult(tv, 'tv')
     );
 
-    // 2️⃣ Enrich top items ONLY
     const enrichedResults = await Promise.all(
       basicResults.slice(0, 12).map(async (item) => {
         const extra = await fetchEnrichedDataById(item.id, item.media_type);
         if (!extra) return item;
 
         return {
-          ...item,   // ✅ title, poster, overview, year
-          ...extra   // ✅ cast, genres, providers, director
+          ...item,   
+          ...extra   
         };
       })
     );
