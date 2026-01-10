@@ -201,7 +201,7 @@ const GenreFilter = ({ genres, selected, onChange }) => {
     }, []);
 
     return (
-        <div className="relative z-20" ref={dropdownRef}>
+        <div className="relative z-[60]" ref={dropdownRef}>
             <button 
                 onClick={() => setIsOpen(!isOpen)}
                 className={`
@@ -217,7 +217,7 @@ const GenreFilter = ({ genres, selected, onChange }) => {
             </button>
 
             {isOpen && (
-                <div className="absolute top-full right-0 md:left-0 mt-2 w-56 bg-neutral-900/90 backdrop-blur-xl border border-white/10 rounded-2xl shadow-2xl overflow-hidden animate-fade-in origin-top-left z-50">
+                <div className="absolute left-0 top-full md:top-full mt-2 w-56 max-h-[60vh] overflow-y-auto bg-neutral-900/95 backdrop-blur-xl border border-white/10 rounded-2xl shadow-2xl animate-fade-in z-[9999]">
                     <div className="max-h-64 overflow-y-auto scrollbar-thin p-1.5 space-y-0.5">
                         {genres.map((genre) => (
                             <button
@@ -770,7 +770,7 @@ const WatchlistView = ({ watchlist, watchlistType, setWatchlistType, onDrop, onD
     const watched = finalFiltered.filter(i => i.status === 'watched');
 
     return (
-      <div className="h-full flex flex-col animate-fade-in pb-20 md:pb-0">
+      <div className="h-full flex flex-col animate-fade-in pb-20 md:pb-0 relative">
         <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 gap-6 bg-neutral-900/50 p-6 rounded-2xl border border-neutral-800">
           <div className="flex flex-col gap-2">
               <h1 className="text-3xl font-black text-white tracking-tight">My Watchlist</h1>
