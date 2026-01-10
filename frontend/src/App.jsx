@@ -124,9 +124,22 @@ const SimilarCard = ({ item, onClick }) => {
         <img src={posterUrl} alt={item.title} className="w-full h-full object-cover" onError={(e) => { e.target.onerror = null; e.target.src = PLACEHOLDER_IMAGE; }} />
         <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors"></div>
       </div>
-      <div className="p-2 border-t border-neutral-700">
-        <h4 className="text-xs font-bold text-gray-200 truncate" title={item.title}>{item.title || item.name}</h4>
+      <div className="p-2 border-t border-neutral-700 space-y-1">
+        <h4 className="text-xs font-bold text-gray-200 truncate">{item.title}</h4>
         <p className="text-[10px] text-orange-500 font-medium">{year}</p>
+
+        <div className="flex gap-2">
+          {item.imdb_rating && (
+            <span className="text-[9px] font-bold text-yellow-500">
+              IMDb {item.imdb_rating}
+            </span>
+          )}
+          {item.rotten_tomatoes && (
+            <span className="text-[9px] font-bold text-red-400">
+              RT {item.rotten_tomatoes}
+            </span>
+          )}
+        </div>
       </div>
     </div>
   );

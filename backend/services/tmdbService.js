@@ -1,4 +1,5 @@
 import fetch from 'node-fetch';
+import cache from '../utils/cache.js';
 import { TMDB_API_KEY, OMDB_API_KEY } from '../config.js';
 
 const GENRE_MAP = {
@@ -41,6 +42,19 @@ export async function fetchFastDetailsById(id, mediaType) {
     };
 }
 
+export async function fetchRatings(title, year) {
+    const cacheKey = `ratings_${title}_${year}`;
+    const cached = cache.get(cacheKey);
+    if (cached) return cached;
+
+    try {
+        const ratings = await fetchOmdbRatings(title, year);
+        cache.set(cacheKey, ratings, 86400); // 24 hours
+        return ratings;
+    } catch {
+        return { imdb: null, rt: null };
+    }
+}
 
 export async function fetchTmdb(url) {
     const res = await fetch(url);
@@ -231,30 +245,28 @@ async function fetchWatchProviders(id, mediaType) {
     } catch (e) { return []; }
 }
 
-async function fetchOmdbRatings(title, year, mediaType) {
-    if (!title) return { imdb: 'N/A', rotten: 'N/A' };
-    const typeParam = mediaType === 'tv' ? 'series' : 'movie';
-    let url = `http://www.omdbapi.com/?t=${encodeURIComponent(title)}&type=${typeParam}&apikey=${OMDB_API_KEY}`;
-    if (year) url += `&y=${year}`;
-    try {
-        const res = await fetch(url);
-        const data = await res.json();
-        if (data.Response === 'False') {
-            if (year) {
-                const retryUrl = `http://www.omdbapi.com/?t=${encodeURIComponent(title)}&type=${typeParam}&apikey=${OMDB_API_KEY}`;
-                const retryRes = await fetch(retryUrl);
-                const retryData = await retryRes.json();
-                if (retryData.Response !== 'False') {
-                     const rt = retryData.Ratings?.find(r => r.Source === 'Rotten Tomatoes')?.Value || 'N/A';
-                     return { imdb: retryData.imdbRating || 'N/A', rotten: rt };
-                }
-            }
-            return { imdb: 'N/A', rotten: 'N/A' };
-        }
-        const rt = data.Ratings?.find(r => r.Source === 'Rotten Tomatoes')?.Value || 'N/A';
-        return { imdb: data.imdbRating || 'N/A', rotten: rt };
-    } catch (e) { return { imdb: 'N/A', rotten: 'N/A' }; }
+export async function fetchOmdbRatings(title, year) {
+  const url = `https://www.omdbapi.com/?t=${encodeURIComponent(title)}&y=${year}&apikey=${OMDB_API_KEY}`;
+  const res = await fetch(url);
+  const data = await res.json();
+
+  let imdb = null;
+  let rt = null;
+
+  if (Array.isArray(data.Ratings)) {
+    for (const r of data.Ratings) {
+      if (r.Source === 'Internet Movie Database') {
+        imdb = r.Value?.split('/')[0]; 
+      }
+      if (r.Source === 'Rotten Tomatoes') {
+        rt = r.Value?.replace('%', ''); 
+      }
+    }
+  }
+
+  return { imdb, rt };
 }
+
 
 function formatTmdbResult(result, mediaType) {
     if (!result) return null;
