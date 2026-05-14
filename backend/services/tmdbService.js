@@ -235,7 +235,7 @@ async function fetchTmdbDetails(id, mediaType) {
     } catch (e) { return { genres: [], director: "Unknown", cast: [] }; }
 }
 
-async function fetchWatchProviders(id, mediaType) {
+export async function fetchWatchProviders(id, mediaType) {
     const url = `https://api.themoviedb.org/3/${mediaType}/${id}/watch/providers?api_key=${TMDB_API_KEY}`;
     try {
         const res = await fetch(url);

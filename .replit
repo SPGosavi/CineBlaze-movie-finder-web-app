@@ -53,8 +53,3 @@ externalPort = 80
 [[ports]]
 localPort = 8000
 externalPort = 8000
-
-[deployment]
-deploymentTarget = "autoscale"
-run = ["bash", "-c", "cd backend && node server.js"]
-build = ["bash", "-c", "cd frontend && npm run build"]

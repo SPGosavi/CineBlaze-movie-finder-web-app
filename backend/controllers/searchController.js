@@ -1,6 +1,6 @@
 import cache from '../utils/cache.js';
 import { callGeminiWithFallback, callGeminiSimilar } from '../services/aiService.js';
-import { fetchEnrichedData, fetchEnrichedDataById, getNativeTmdbRecommendations, enrichWithDeepData, searchTmdbDirect } from '../services/tmdbService.js';
+import { fetchEnrichedData, fetchEnrichedDataById, getNativeTmdbRecommendations, enrichWithDeepData, searchTmdbDirect, fetchWatchProviders } from '../services/tmdbService.js';
 
 export const getMediaDetails = async (req, res) => {
     const { id, title, year, media_type } = req.body;;
