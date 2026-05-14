@@ -201,14 +201,36 @@ async function performTmdbSearch(queryTitle, year, mediaType) {
         if (!res.ok) return null;
         const data = await res.json();
         if (!data.results || data.results.length === 0) return null;
-        if (year) {
-            const yearStr = String(year);
-            const match = data.results.find(item => {
-                const d = item.release_date || item.first_air_date;
-                return d && d.startsWith(yearStr);
-            });
-            if (match) return formatTmdbResult(match, mediaType);
+
+        const normalizedQuery = queryTitle.toLowerCase().trim();
+        const yearStr = year ? String(year) : null;
+
+        const exactTitle = (item) => {
+            const t = (item.title || item.name || '').toLowerCase().trim();
+            return t === normalizedQuery;
+        };
+        const matchesYear = (item) => {
+            const d = item.release_date || item.first_air_date;
+            return d && yearStr && d.startsWith(yearStr);
+        };
+
+        // 1. Exact title + year match (strongest signal)
+        if (yearStr) {
+            const best = data.results.find(item => exactTitle(item) && matchesYear(item));
+            if (best) return formatTmdbResult(best, mediaType);
         }
+
+        // 2. Exact title match (any year)
+        const exactOnly = data.results.find(exactTitle);
+        if (exactOnly) return formatTmdbResult(exactOnly, mediaType);
+
+        // 3. Year match among remaining results (original behaviour)
+        if (yearStr) {
+            const yearMatch = data.results.find(matchesYear);
+            if (yearMatch) return formatTmdbResult(yearMatch, mediaType);
+        }
+
+        // 4. Fallback: top popularity result
         return formatTmdbResult(data.results[0], mediaType);
     } catch (e) { return null; }
 }
