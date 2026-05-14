@@ -15,7 +15,7 @@ app.use(express.json());
 // Mount API Routes
 app.use('/api', apiRoutes);
 
-const PORT = process.env.PORT || 5001;
+const PORT = process.env.PORT || 8000;
 
 app.get('/health', (req, res) => {
     res.status(200).send('OK');
