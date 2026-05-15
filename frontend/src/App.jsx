@@ -18,7 +18,7 @@ import {
 } from 'firebase/firestore';
 
 // --- CONFIG ---
-const API_BASE_URL = '';
+const API_BASE_URL = import.meta.env.VITE_API_URL || '';
 const TMDB_IMAGE_BASE_URL = 'https://image.tmdb.org/t/p/w500';
 const TMDB_LOGO_BASE_URL = 'https://image.tmdb.org/t/p/original';
 const PLACEHOLDER_IMAGE = 'https://placehold.co/500x750/171717/7f1d1d?text=No+Poster';

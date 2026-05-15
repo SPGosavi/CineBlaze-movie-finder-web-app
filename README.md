@@ -128,9 +128,9 @@ Client (React + Vite)
 - node-fetch & node-cache  
 
 ### Deployment
-- Frontend: Vercel  
-- Backend: Render  
-- Database: Firebase Cloud Firestore  
+- Frontend: Vercel
+- Backend: Render
+- Database: Firebase Cloud Firestore
 
 ---
 
