@@ -207,7 +207,8 @@ async function performTmdbSearch(queryTitle, year, mediaType) {
 
         const exactTitle = (item) => {
             const t = (item.title || item.name || '').toLowerCase().trim();
-            return t === normalizedQuery;
+            const ot = (item.original_title || item.original_name || '').toLowerCase().trim();
+            return t === normalizedQuery || ot === normalizedQuery;
         };
         const matchesYear = (item) => {
             const d = item.release_date || item.first_air_date;

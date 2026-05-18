@@ -1,5 +1,5 @@
 import cache from '../utils/cache.js';
-import { callGeminiWithFallback, callGeminiSimilar } from '../services/aiService.js';
+import { callGroqWithFallback, callGroqSimilar } from '../services/aiService.js';
 import { fetchEnrichedData, fetchEnrichedDataById, getNativeTmdbRecommendations, enrichWithDeepData, searchTmdbDirect, fetchWatchProviders } from '../services/tmdbService.js';
 
 export const getMediaDetails = async (req, res) => {
@@ -69,7 +69,7 @@ export const findMovies = async (req, res) => {
         
         let aiResults = [];
         if (isLikelyTitleQuery(description)) {
-            console.log("[Search] Detected title query. Skipping Gemini.");
+            console.log("[Search] Detected title query. Skipping AI Search.");
 
             const directResults = await searchTmdbDirect(description);
 
@@ -84,9 +84,15 @@ export const findMovies = async (req, res) => {
 
         // 1. Try AI Search
         try {
-            aiResults = await callGeminiWithFallback(description);
+            aiResults = await callGroqWithFallback(description);
         } catch (e) {
-            console.warn("[Search] AI Service Failed (Rate Limit or Error). Switching to Fallback.");
+            if (e.status === 429) {
+                return res.status(429).json({ 
+                    error: "AI service rate limit exceeded. Please try again later.", 
+                    status: 429 
+                });
+            }
+            console.warn("[Search] AI Service Failed. Switching to Fallback.");
         }
         
         // 2. Fallback Logic: Direct TMDB Search if AI returned nothing
@@ -145,7 +151,7 @@ export const getSimilar = async (req, res) => {
 
         // 1. Try AI
         try {
-            const recommendations = await callGeminiSimilar(title, media_type, year);
+            const recommendations = await callGroqSimilar(title, media_type, year);
             if (recommendations && recommendations.length > 0) {
                 const enriched = await Promise.all(
                     recommendations.map(item => fetchEnrichedData(item.title, item.year, item.media_type))
@@ -153,7 +159,13 @@ export const getSimilar = async (req, res) => {
                 finalResults = enriched.filter(Boolean);
             }
         } catch (e) {
-            // Fall through if AI fails
+            if (e.status === 429) {
+                return res.status(429).json({ 
+                    error: "AI service rate limit exceeded. Please try again later.", 
+                    status: 429 
+                });
+            }
+            console.warn("[Similar] AI Service Failed. Falling back to native.");
         }
 
         // 2. Fallback to Native TMDB if AI failed or returned nothing
