@@ -88,25 +88,83 @@ export function formatBasicTmdbResult(item, mediaType) {
 
 export async function searchTmdbDirect(query) {
     try {
-        const movieUrl = `https://api.themoviedb.org/3/search/movie?api_key=${TMDB_API_KEY}&query=${encodeURIComponent(query)}&language=en-US&page=1`;
-        const tvUrl = `https://api.themoviedb.org/3/search/tv?api_key=${TMDB_API_KEY}&query=${encodeURIComponent(query)}&language=en-US&page=1`;
+        console.log(`[TMDB] Direct Search for: "${query}"`);
 
-        const [moviesRes, tvRes] = await Promise.all([fetch(movieUrl), fetch(tvUrl)]);
-        const movies = await moviesRes.json();
-        const tv = await tvRes.json();
+        // Strip generic suffixes/prefixes that confuse TMDB search
+        let cleanedQuery = query
+            .replace(/\b(movies?|films?|shows?|series)\b/gi, '')
+            .replace(/^(best|top|latest|recent|new|popular|all)\s+/i, '')
+            .trim();
+        
+        if (!cleanedQuery) cleanedQuery = query; // safety fallback
+        
+        const searchQuery = cleanedQuery !== query 
+            ? cleanedQuery 
+            : query;
+        
+        if (cleanedQuery !== query) {
+            console.log(`[TMDB] Cleaned query: "${query}" → "${searchQuery}"`);
+        }
 
-        // Combine and sort by popularity
-        const combined = [
-            ...(movies.results || []).map(m => ({ ...m, media_type: 'movie' })),
-            ...(tv.results || []).map(m => ({ ...m, media_type: 'tv' }))
-        ].sort((a, b) => b.popularity - a.popularity).slice(0, 10);
+        // Use Multi-Search to handle Actors + Titles + Keywords in one go
+        const url = `https://api.themoviedb.org/3/search/multi?api_key=${TMDB_API_KEY}&query=${encodeURIComponent(searchQuery)}&language=en-US&page=1`;
+        const res = await fetch(url);
+        const data = await res.json();
 
-        return combined.map(item => formatTmdbResult(item, item.media_type));
+        let combined = [];
+        if (data.results && data.results.length > 0) {
+            for (const item of data.results) {
+                if (item.media_type === 'movie' || item.media_type === 'tv') {
+                    combined.push(item);
+                } else if (item.media_type === 'person' && item.known_for) {
+                    combined.push(...item.known_for.map(m => ({ ...m, media_type: m.title ? 'movie' : 'tv' })));
+                }
+            }
+        }
+
+        // If no results for the cleaned string, try searching just for potential actor names
+        if (combined.length === 0 && searchQuery.includes(' ')) {
+            const words = searchQuery.split(' ');
+            // Look for word pairs which are likely names (case-insensitive)
+            const names = [];
+            for (let i = 0; i < words.length - 1; i++) {
+                if (words[i].length > 1 && words[i + 1].length > 1) {
+                    names.push(`${words[i]} ${words[i+1]}`);
+                }
+            }
+
+            if (names.length > 0) {
+                console.log(`[TMDB] No results for cleaned query. Trying actor-specific search for: "${names[0]}"`);
+                const actorUrl = `https://api.themoviedb.org/3/search/multi?api_key=${TMDB_API_KEY}&query=${encodeURIComponent(names[0])}&language=en-US&page=1`;
+                const actorRes = await fetch(actorUrl);
+                const actorData = await actorRes.json();
+                
+                if (actorData.results) {
+                    for (const item of actorData.results) {
+                        if (item.media_type === 'person' && item.known_for) {
+                            combined.push(...item.known_for.map(m => ({ ...m, media_type: m.title ? 'movie' : 'tv' })));
+                        }
+                    }
+                }
+            }
+        }
+
+        // De-duplicate by ID
+        const seen = new Set();
+        const unique = combined.filter(item => {
+            if (!item.id) return false;
+            const duplicate = seen.has(item.id);
+            seen.add(item.id);
+            return !duplicate;
+        });
+
+        return unique.slice(0, 10).map(item => formatTmdbResult(item, item.media_type));
     } catch (e) {
         console.error("Direct Search Failed:", e);
         return [];
     }
 }
+
 
 export async function getNativeTmdbRecommendations(title, year, mediaType) {
     if (!title || !mediaType) return [];
@@ -186,21 +244,121 @@ export async function fetchEnrichedData(title, year, preferredType) {
 
 async function fetchTmdbRobust(title, year, preferredType) {
     if (!title) return null;
-    const cleanTitle = String(title).replace(/\(\d{4}\)/g, '').trim();
+    
+    // Aggressive cleaning: remove (YYYY), YYYY at end, "The movie X", "X movie"
+    let cleanTitle = String(title)
+        .replace(/\(\d{4}\)/g, '') // remove (2009)
+        .replace(/\s\d{4}$/, '')   // remove 2009 at end
+        .replace(/^(the movie|the show|movie|show)\s+/i, '') // remove prefixes
+        .replace(/\s+(movie|show)$/i, '') // remove suffixes
+        .trim();
+
     let result = await performTmdbSearch(cleanTitle, year, preferredType);
     if (result) return result;
     const fallbackType = preferredType === 'movie' ? 'tv' : 'movie';
     return await performTmdbSearch(cleanTitle, year, fallbackType);
 }
 
+function calculateSimilarity(str1, str2) {
+    if (!str1 || !str2) return 0;
+    const s1 = str1.toLowerCase().replace(/[^a-z0-9]/g, '');
+    const s2 = str2.toLowerCase().replace(/[^a-z0-9]/g, '');
+    if (s1 === s2) return 1.0;
+    if (s1.length === 0 || s2.length === 0) return 0.0;
+
+    const matrix = Array(s2.length + 1).fill(null).map(() => Array(s1.length + 1).fill(null));
+
+    for (let i = 0; i <= s1.length; i++) matrix[0][i] = i;
+    for (let j = 0; j <= s2.length; j++) matrix[j][0] = j;
+
+    for (let j = 1; j <= s2.length; j++) {
+        for (let i = 1; i <= s1.length; i++) {
+            const indicator = s1[i - 1] === s2[j - 1] ? 0 : 1;
+            matrix[j][i] = Math.min(
+                matrix[j][i - 1] + 1, // insertion
+                matrix[j - 1][i] + 1, // deletion
+                matrix[j - 1][i - 1] + indicator // substitution
+            );
+        }
+    }
+    const distance = matrix[s2.length][s1.length];
+    const maxLength = Math.max(s1.length, s2.length);
+    return (maxLength - distance) / maxLength;
+}
+
 async function performTmdbSearch(queryTitle, year, mediaType) {
     const endpoint = mediaType === 'tv' ? 'tv' : 'movie';
-    const url = `https://api.themoviedb.org/3/search/${endpoint}?api_key=${TMDB_API_KEY}&query=${encodeURIComponent(queryTitle)}&language=en-US&page=1`;
+    const baseUrl = `https://api.themoviedb.org/3/search/${endpoint}?api_key=${TMDB_API_KEY}&language=en-US&page=1`;
+    
     try {
-        const res = await fetch(url);
+        let res = await fetch(`${baseUrl}&query=${encodeURIComponent(queryTitle)}`);
         if (!res.ok) return null;
-        const data = await res.json();
-        if (!data.results || data.results.length === 0) return null;
+        let data = await res.json();
+
+        // Relaxed search if no results and query has multiple words
+        if ((!data.results || data.results.length === 0) && queryTitle.includes(' ')) {
+             const words = queryTitle.split(' ');
+             if (words.length > 1) {
+                 const relaxedQuery = words.slice(0, Math.min(words.length - 1, 3)).join(' '); 
+                 console.log(`[TMDB] No results for "${queryTitle}". Trying relaxed: "${relaxedQuery}"`);
+                 const relaxedRes = await fetch(`${baseUrl}&query=${encodeURIComponent(relaxedQuery)}`);
+                 if (relaxedRes.ok) {
+                     const relaxedData = await relaxedRes.json();
+                     if (relaxedData.results && relaxedData.results.length > 0) {
+                         data = relaxedData;
+                     }
+                 }
+
+                 // Transliteration / Spelling robust fallback
+                 // Try progressively shorter sub-queries by dropping words from the start
+                 // e.g. "Ti Sadhya Kay Karte" → "Sadhya Kay Karte" → "Kay Karte"
+                 // This ensures we eventually skip past the misspelled word(s).
+                 if (!data.results || data.results.length === 0) {
+                     let bestCandidates = null;
+
+                     for (let drop = 1; drop < words.length - 1; drop++) {
+                         const subQuery = words.slice(drop).join(' ');
+                         if (subQuery.length < 3) break; // Too short to be useful
+
+                         console.log(`[TMDB] Spelling fallback (drop ${drop}): "${subQuery}"`);
+                         const subRes = await fetch(`${baseUrl}&query=${encodeURIComponent(subQuery)}`);
+                         
+                         if (subRes.ok) {
+                             const subData = await subRes.json();
+                             if (subData.results && subData.results.length > 0) {
+                                 // Score every candidate against the original full query title
+                                 const candidates = subData.results.map(item => {
+                                     const t = item.title || item.name || '';
+                                     const ot = item.original_title || item.original_name || '';
+                                     const score1 = calculateSimilarity(queryTitle, t);
+                                     const score2 = calculateSimilarity(queryTitle, ot);
+                                     return { ...item, _similarityScore: Math.max(score1, score2) };
+                                 });
+                                 
+                                 candidates.sort((a, b) => b._similarityScore - a._similarityScore);
+                                 
+                                 if (candidates[0]._similarityScore >= 0.70) {
+                                     console.log(`[TMDB] Found fuzzy match: "${candidates[0].title || candidates[0].name}" (Score: ${candidates[0]._similarityScore.toFixed(2)})`);
+                                     bestCandidates = candidates;
+                                     break; // Use the first sub-query that yields a strong match
+                                 } else {
+                                     console.log(`[TMDB] Best candidate from "${subQuery}": "${candidates[0].title || candidates[0].name}" (Score: ${candidates[0]._similarityScore.toFixed(2)}) — below threshold`);
+                                 }
+                             }
+                         }
+                     }
+
+                     if (bestCandidates) {
+                         data.results = bestCandidates;
+                     }
+                 }
+             }
+        }
+
+        if (!data.results || data.results.length === 0) {
+            console.log(`[TMDB] No results for "${queryTitle}"`);
+            return null;
+        }
 
         const normalizedQuery = queryTitle.toLowerCase().trim();
         const yearStr = year ? String(year) : null;
@@ -208,11 +366,15 @@ async function performTmdbSearch(queryTitle, year, mediaType) {
         const exactTitle = (item) => {
             const t = (item.title || item.name || '').toLowerCase().trim();
             const ot = (item.original_title || item.original_name || '').toLowerCase().trim();
-            return t === normalizedQuery || ot === normalizedQuery;
+            const match = t === normalizedQuery || ot === normalizedQuery;
+            if (match) console.log(`[TMDB] Title Match: "${t}" === "${normalizedQuery}"`);
+            return match;
         };
         const matchesYear = (item) => {
             const d = item.release_date || item.first_air_date;
-            return d && yearStr && d.startsWith(yearStr);
+            const match = d && yearStr && d.startsWith(yearStr);
+            if (match) console.log(`[TMDB] Year Match: "${d}" starts with "${yearStr}"`);
+            return match;
         };
 
         // 1. Exact title + year match (strongest signal)
@@ -231,6 +393,7 @@ async function performTmdbSearch(queryTitle, year, mediaType) {
             if (yearMatch) return formatTmdbResult(yearMatch, mediaType);
         }
 
+        console.log(`[TMDB] No exact match for "${queryTitle}" (${yearStr}). Using top result: "${data.results[0].title || data.results[0].name}"`);
         // 4. Fallback: top popularity result
         return formatTmdbResult(data.results[0], mediaType);
     } catch (e) { return null; }

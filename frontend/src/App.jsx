@@ -506,7 +506,15 @@ const MovieDetailsModal = ({ item, onClose, onAddToWatchlist, onRemoveFromWatchl
         const response = await fetch(`${API_BASE_URL}/api/get-similar`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ title: safeItem.title, media_type: safeItem.media_type, year: year }),
+            body: JSON.stringify({ 
+                title: safeItem.title, 
+                media_type: safeItem.media_type, 
+                year: year,
+                genres: safeItem.genres || [],
+                overview: safeItem.overview || '',
+                cast: safeItem.cast || [],
+                director: safeItem.director || 'Unknown'
+            }),
         });
         const data = await response.json();
         setSimilarMovies(data.similar || []);
